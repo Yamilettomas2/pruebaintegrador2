@@ -22,7 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AuthLoginService {
 
-    private MongoRepositorio userRepository;
+    private MongoRepositorio mongoRepositorio;
 
     private PasswordEncoder passwordEncoder;
 
@@ -31,11 +31,11 @@ public class AuthLoginService {
     private AuthenticationManager authenticationManager;
 
     @Autowired
-    public AuthLoginService(MongoRepositorio userRepository,
+    public AuthLoginService(MongoRepositorio mongoRepositorio,
                             PasswordEncoder passwordEncoder,
                             JwtService jwtService,
                             AuthenticationManager authenticationManager) {
-        this.userRepository = userRepository;
+        this.mongoRepositorio = mongoRepositorio;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
@@ -47,7 +47,8 @@ public class AuthLoginService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.USER);
-        userRepository.save(user);
+
+        mongoRepositorio.save(user);
         return new AuthDto(this.jwtService.getToken(user));
     }
 
@@ -56,7 +57,7 @@ public class AuthLoginService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-            UserDetails user = userRepository.findByEmail(request.getEmail())
+            UserDetails user = mongoRepositorio.findByEmail(request.getEmail())
                     .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el email: " + request.getEmail()));
 
             String token = jwtService.getToken(user);
@@ -64,12 +65,10 @@ public class AuthLoginService {
 
         } catch (UsernameNotFoundException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado", e);
-
         } catch (BadCredentialsException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas", e);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado durante el inicio de sesión", e);
         }
     }
-
 }
