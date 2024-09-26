@@ -22,16 +22,14 @@ public class AuthController {
     @Autowired
     private AuthLoginService authLoginService;
 
-    @PostMapping(value = "/login")
+    @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginDto login) {
         try {
             AuthDto authDto = this.authLoginService.login(login);
             return ResponseEntity.ok(authDto);
         } catch (UsernameNotFoundException | BadCredentialsException e) {
-            // Manejo de excepciones específico
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
-            // Manejo de excepciones generales
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ocurrió un error inesperado");
         }
     }
@@ -42,7 +40,6 @@ public class AuthController {
             AuthDto authDto = this.authLoginService.register(dto);
             return ResponseEntity.ok(authDto);
         } catch (Exception e) {
-            // Manejo de excepciones generales
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ocurrió un error inesperado");
         }
     }
