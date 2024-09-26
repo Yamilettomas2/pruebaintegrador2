@@ -1,82 +1,56 @@
 package com.example.demo.service;
 
-
+import com.example.demo.dto.UserDto;
 import com.example.demo.entity.UserEntidad;
 import com.example.demo.repositort.MongoRepositorio;
-import com.example.demo.config.JwtService;
-import com.example.demo.util.Role;
-import com.example.demo.dto.AuthDto;
-import com.example.demo.dto.LoginDto;
-import com.example.demo.dto.RegisterDto;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
-public class AuthLoginService {
-
-    private MongoRepositorio mongoRepositorio;
-
-    private PasswordEncoder passwordEncoder;
-
-    private JwtService jwtService;
-
-    private AuthenticationManager authenticationManager;
+public class UserService {
 
     @Autowired
-    public AuthLoginService(MongoRepositorio mongoRepositorio,
-                            PasswordEncoder passwordEncoder,
-                            JwtService jwtService,
-                            AuthenticationManager authenticationManager) {
-        this.mongoRepositorio = mongoRepositorio;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-        this.authenticationManager = authenticationManager;
+    private MongoRepositorio mongoRepositorio;
+
+    public List<UserDto> getAll(){
+        return this.mongoRepositorio.findAll().stream()
+                .map(this::toDto)
+                .toList();
     }
 
-    public AuthDto login(final LoginDto request){
-        try {
-            // Intenta autenticar al usuario
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-
-            // Si la autenticación es exitosa, busca al usuario en el repositorio
-            UserDetails user = mongoRepositorio.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el email: " + request.getEmail()));
-
-            // Genera el token JWT para el usuario autenticado
-            String token = jwtService.getToken(user);
-            return new AuthDto(token);
-
-        } catch (UsernameNotFoundException e) {
-            // Maneja el caso donde el usuario no fue encontrado
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado", e);
-
-        } catch (BadCredentialsException e) {
-            // Maneja el caso donde las credenciales son incorrectas
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas", e);
-
-        } catch (Exception e) {
-            // Maneja cualquier otra excepción inesperada
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado durante el inicio de sesión", e);
-        }
+    public UserDto getById(String id){
+        return this.mongoRepositorio.findById(id)
+                .map(this::toDto)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
     }
 
-    public AuthDto register(final RegisterDto request){
-        UserEntidad user = new UserEntidad();
-        user.setName(request.getName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.USER);
+    public UserDto save(UserDto user){
+        UserEntidad entity = new UserEntidad();
+        entity.setName(user.getName());
+        entity.setEmail(user.getEmail());
+        UserEntidad entitySaved = this.mongoRepositorio.save(entity);
+        UserDto saved = this.toDto(entitySaved);
+        return saved;
+    }
 
-        mongoRepositorio.save(user);
-        return new AuthDto(this.jwtService.getToken(user));
+    public UserDto update(UserDto user, String id){
+        UserEntidad entity = this.mongoRepositorio.findById(id).orElse(null);
+        entity.setEmail(user.getEmail());
+        entity.setName(user.getName());
+        UserEntidad entitySaved = this.mongoRepositorio.save(entity);
+        UserDto saved = this.toDto(entitySaved);
+        return saved;
+    }
+
+    public void delete(String id){
+        UserEntidad entity = this.mongoRepositorio.findById(id).orElse(null);
+        this.mongoRepositorio.delete(entity);
+    }
+
+    private UserDto toDto(UserEntidad entity){
+        return new UserDto(entity.getId(), entity.getName(), entity.getEmail());
     }
 }
